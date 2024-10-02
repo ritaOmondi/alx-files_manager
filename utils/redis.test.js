@@ -1,35 +1,61 @@
-/* eslint-disable import/no-named-as-default */
-import { expect } from 'chai';
-import redisClient from '../../utils/redis';
+// utils/redis.js
+const redis = require('redis');
 
-describe('+ RedisClient utility', () => {
-  before(function (done) {
-    this.timeout(10000);
-    setTimeout(done, 4000);
-  });
+class RedisClient {
+    constructor() {
+        this.client = redis.createClient();
 
-  it('+ Client is alive', () => {
-    expect(redisClient.isAlive()).to.equal(true);
-  });
+        // Handle errors
+        this.client.on('error', (err) => {
+            console.error('Redis Client Error', err);
+        });
 
-  it('+ Setting and getting a value', async function () {
-    await redisClient.set('test_key', 345, 10);
-    expect(await redisClient.get('test_key')).to.equal('345');
-  });
+        this.client.on('connect', () => {
+            console.log('Connected to Redis');
+        });
+    }
 
-  it('+ Setting and getting an expired value', async function () {
-    await redisClient.set('test_key', 356, 1);
-    setTimeout(async () => {
-      expect(await redisClient.get('test_key')).to.not.equal('356');
-    }, 2000);
-  });
+    isAlive() {
+        return this.client.connected;
+    }
 
-  it('+ Setting and getting a deleted value', async function () {
-    await redisClient.set('test_key', 345, 10);
-    await redisClient.del('test_key');
-    setTimeout(async () => {
-      console.log('del: test_key ->', await redisClient.get('test_key'));
-      expect(await redisClient.get('test_key')).to.be.null;
-    }, 2000);
-  });
-});
+    async get(key) {
+        return new Promise((resolve, reject) => {
+            this.client.get(key, (err, value) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(value);
+                }
+            });
+        });
+    }
+
+    async set(key, value, duration) {
+        return new Promise((resolve, reject) => {
+            this.client.setex(key, duration, value, (err, reply) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(reply);
+                }
+            });
+        });
+    }
+
+    async del(key) {
+        return new Promise((resolve, reject) => {
+            this.client.del(key, (err, reply) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(reply);
+                }
+            });
+        });
+    }
+}
+
+// Create and export an instance of RedisClient
+	const redisClient = new RedisClient();
+	module.exports = { redisClient };
